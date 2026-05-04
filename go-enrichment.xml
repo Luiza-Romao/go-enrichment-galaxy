@@ -1,0 +1,314 @@
+<tool id="go_enrichment" name="GO Enrichment Analysis (WGCNA companion)" version="@TOOL_VERSION@@VERSION_SUFFIX@" profile="21.09">
+
+    <description>Per-module GO enrichment with ortholog ID mapping for non-model organisms</description>
+
+    <macros>
+        <import>go_enrichment_macros.xml</import>
+    </macros>
+
+    <expand macro="requirements" />
+
+    <!-- ================================================================== -->
+    <!-- Command                                                              -->
+    <!-- ================================================================== -->
+    <command detect_errors="exit_code"><![CDATA[
+    mkdir -p go_plots &&
+
+    Rscript '$__tool_directory__/go_enrichment.R'
+        --module_table '$module_table'
+
+        #if $module_filter.filter_mode == "sel_table":
+            --sel_modules '$module_filter.sel_modules_table'
+        #elif $module_filter.filter_mode == "manual":
+            --modules '$module_filter.module_names'
+        #else:
+            --modules 'all'
+        #end if
+
+        --min_genes_per_mod '$min_genes_per_mod'
+
+        #if $id_mapping_section.use_mapping == "yes":
+            --id_mapping '$id_mapping_section.mapping_file'
+            --mapping_from_col '$id_mapping_section.mapping_from_col'
+            --mapping_to_col '$id_mapping_section.mapping_to_col'
+        #end if
+
+        --orgdb '$orgdb_section.orgdb'
+        --keytype '$orgdb_section.keytype'
+        --ontology '$ontology'
+
+        --pvalue_cutoff '$thresholds.pvalue_cutoff'
+        --qvalue_cutoff '$thresholds.qvalue_cutoff'
+        --min_gs_size '$thresholds.min_gs_size'
+        --max_gs_size '$thresholds.max_gs_size'
+        --top_terms '$thresholds.top_terms'
+
+        --out_table_combined '$out_table_combined'
+        --out_table_mapping '$out_table_mapping'
+        --out_plot_dot '$out_plot_dot'
+        --out_plot_bar '$out_plot_bar'
+        --out_plots_dir go_plots
+        --out_log '$out_log'
+    ]]></command>
+
+    <!-- ================================================================== -->
+    <!-- Inputs                                                               -->
+    <!-- ================================================================== -->
+    <inputs>
+
+        <!-- Primary input from WGCNA -->
+        <param name="module_table" type="data" format="tabular,tsv,txt"
+            label="Module gene assignments (from WGCNA)"
+            help="The 'Module gene assignments' output from the WGCNA tool.
+                  Must contain a gene ID column and a module color column." />
+
+        <!-- Module selection -->
+        <conditional name="module_filter">
+            <param name="filter_mode" type="select"
+                label="Which modules to analyze">
+                <option value="all" selected="true">All modules (excluding grey)</option>
+                <option value="sel_table">Modules from WGCNA selected-modules table</option>
+                <option value="manual">Specify module names manually</option>
+            </param>
+            <when value="all" />
+            <when value="sel_table">
+                <param name="sel_modules_table" type="data" format="tabular,tsv,txt"
+                    label="Selected modules table (from WGCNA)"
+                    help="The 'Selected modules summary' output from the WGCNA tool.
+                          Only modules listed here will be analyzed." />
+            </when>
+            <when value="manual">
+                <param name="module_names" type="text" value="turquoise,blue"
+                    label="Module names (comma-separated)"
+                    help="Example: turquoise,blue,brown. Names must match the module colors
+                          in the gene assignments table exactly." />
+            </when>
+        </conditional>
+
+        <param name="min_genes_per_mod" type="integer" value="10" min="3" max="500"
+            label="Minimum genes per module for enrichment"
+            help="Modules with fewer genes (after mapping) than this threshold are skipped.
+                  Modules with very few genes produce unreliable enrichment results. Default: 10" />
+
+        <!-- ────────────────────────────────────────────────────────────── -->
+        <!-- ID Mapping — key feature for non-model organisms               -->
+        <!-- ────────────────────────────────────────────────────────────── -->
+        <conditional name="id_mapping_section">
+            <param name="use_mapping" type="select"
+                label="Transcript ID mapping (for non-model organisms)"
+                help="Use this when your gene IDs are species-specific (e.g. sugarcane 'transcript_XXXXXX')
+                      and need to be converted to a model organism's IDs before GO annotation.
+                      Provide a two-column TSV mapping your IDs to the target organism's gene IDs.">
+                <option value="no" selected="true">No — use gene IDs from module table directly</option>
+                <option value="yes">Yes — map transcript IDs to ortholog IDs</option>
+            </param>
+            <when value="no" />
+            <when value="yes">
+                <param name="mapping_file" type="data" format="tabular,tsv,txt"
+                    label="ID mapping file"
+                    help="Tab-separated file with at least two columns: one with your transcript IDs
+                          and one with the target organism's gene IDs (e.g. Arabidopsis TAIR IDs).
+                          This file is typically generated from BLAST best-hit results or OrthoFinder output.
+                          One-to-many mappings are accepted; all target IDs will be included." />
+                <param name="mapping_from_col" type="text" value="transcript_id"
+                    label="Column name — source IDs (your transcripts)"
+                    help="Column header in the mapping file containing your organism's transcript IDs.
+                          Example: 'transcript_id', 'sugarcane_id', 'query'." />
+                <param name="mapping_to_col" type="text" value="target_id"
+                    label="Column name — target IDs (model organism)"
+                    help="Column header in the mapping file containing the model organism's gene IDs.
+                          Example: 'target_id', 'arabidopsis_tair', 'subject'.
+                          These IDs must be recognized by the selected OrgDb (e.g. AT1G01010 for TAIR)." />
+            </when>
+        </conditional>
+
+        <!-- OrgDb and keytype -->
+        <section name="orgdb_section" title="Organism database" expanded="true">
+            <expand macro="orgdb_param" />
+            <expand macro="keytype_param" />
+        </section>
+
+        <!-- Ontology selection -->
+        <param name="ontology" type="select"
+            label="GO ontology">
+            <option value="ALL" selected="true">All (BP + MF + CC)</option>
+            <option value="BP">Biological Process (BP)</option>
+            <option value="MF">Molecular Function (MF)</option>
+            <option value="CC">Cellular Component (CC)</option>
+        </param>
+
+        <!-- Thresholds -->
+        <expand macro="enrichment_thresholds" />
+
+    </inputs>
+
+    <!-- ================================================================== -->
+    <!-- Outputs                                                              -->
+    <!-- ================================================================== -->
+    <outputs>
+
+        <data name="out_table_combined" format="tabular"
+            label="${tool.name}: GO enrichment results (all modules)" />
+
+        <data name="out_table_mapping" format="tabular"
+            label="${tool.name}: ID mapping report" />
+
+        <data name="out_plot_dot" format="png"
+            label="${tool.name}: Dotplot — all modules" />
+
+        <data name="out_plot_bar" format="png"
+            label="${tool.name}: Barplot — all modules" />
+
+        <collection name="out_plots_per_module" type="list"
+            label="${tool.name}: Per-module plots">
+            <discover_datasets
+                pattern="(?P&lt;name&gt;.+)\.png"
+                directory="go_plots"
+                format="png" />
+        </collection>
+
+        <data name="out_log" format="txt"
+            label="${tool.name}: Analysis log" />
+
+    </outputs>
+
+    <!-- ================================================================== -->
+    <!-- Tests                                                                -->
+    <!-- ================================================================== -->
+    <tests>
+        <test expect_num_outputs="6">
+            <param name="module_table" value="test_modules.tabular" />
+            <conditional name="module_filter">
+                <param name="filter_mode" value="all" />
+            </conditional>
+            <conditional name="id_mapping_section">
+                <param name="use_mapping" value="no" />
+            </conditional>
+            <section name="orgdb_section">
+                <param name="orgdb" value="org.At.tair.db" />
+                <param name="keytype" value="TAIR" />
+            </section>
+            <param name="ontology" value="BP" />
+            <section name="thresholds">
+                <param name="pvalue_cutoff" value="0.05" />
+                <param name="qvalue_cutoff" value="0.2" />
+                <param name="min_gs_size"   value="10" />
+                <param name="max_gs_size"   value="500" />
+                <param name="top_terms"     value="15" />
+            </section>
+            <output name="out_table_combined">
+                <assert_contents>
+                    <has_text text="Module" />
+                </assert_contents>
+            </output>
+            <output name="out_log">
+                <assert_contents>
+                    <has_text text="GO Enrichment Analysis" />
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+
+    <!-- ================================================================== -->
+    <!-- Help                                                                 -->
+    <!-- ================================================================== -->
+    <help><![CDATA[
+
+**What it does**
+
+This tool performs per-module Gene Ontology (GO) enrichment analysis using
+clusterProfiler. It is designed as a companion to the WGCNA Galaxy tool and
+takes the module gene assignment table as its primary input.
+
+A key feature is the **transcript ID mapping** option, which allows users working
+with non-model organisms (such as sugarcane, with IDs like ``transcript_002741``)
+to convert their transcript IDs to ortholog IDs from a model organism before GO
+annotation. This is necessary because GO databases are annotated for model species,
+not for complex polyploid crops.
+
+-----
+
+**Transcript ID mapping — how it works**
+
+Sugarcane does not have a dedicated GO database. The standard approach is to:
+
+1. Run a BLAST search (e.g. blastp or blastx) of your sugarcane transcripts
+   against the Arabidopsis thaliana proteome.
+2. Take the best hit for each transcript to produce a two-column table::
+
+    transcript_id        target_id
+    transcript_002741    AT1G01010
+    transcript_018843    AT3G54440
+    transcript_031021    AT5G20790
+
+3. Provide this table as the **ID mapping file** in this tool.
+4. Select **Arabidopsis thaliana** as the OrgDb and **TAIR** as the key type.
+
+The tool will join your module gene lists with the mapping table, replace
+sugarcane transcript IDs with Arabidopsis TAIR IDs, and run enrichGO using
+the Arabidopsis annotation database. A mapping report is generated showing
+which transcripts were successfully mapped and their module assignments.
+
+**One-to-many mappings are supported.** If a single sugarcane transcript maps
+to multiple Arabidopsis genes (e.g. from OrthoFinder orthogroups), all target
+IDs will be included in the enrichment.
+
+-----
+
+**Input formats**
+
+Module gene assignments table (from WGCNA)::
+
+    Gene             Module
+    transcript_001   turquoise
+    transcript_002   blue
+    transcript_003   turquoise
+
+ID mapping file (two-column TSV, header required)::
+
+    transcript_id    target_id
+    transcript_001   AT1G01010
+    transcript_002   AT3G54440
+
+-----
+
+**Module selection options**
+
+- **All modules** — analyzes every module except grey (unassigned genes).
+- **Selected-modules table** — provide the ``Selected modules summary`` output
+  from the WGCNA tool to restrict analysis to modules that passed the
+  correlation threshold in your WGCNA run.
+- **Manual** — type module color names directly (e.g. ``turquoise,blue,brown``).
+
+-----
+
+**Outputs**
+
+- ``GO enrichment results`` — combined TSV with all significant terms across all
+  modules and ontologies (columns: Module, Ontology, ID, Description, GeneRatio,
+  pvalue, p.adjust, Count, geneID).
+- ``ID mapping report`` — which transcripts were mapped and to which target IDs.
+- ``Dotplot — all modules`` — overview dotplot faceted by module and ontology.
+- ``Barplot — all modules`` — overview barplot faceted by module and ontology.
+- ``Per-module plots`` — individual dotplot and barplot for each module (collection).
+- ``Analysis log`` — step-by-step log with mapping statistics and term counts.
+
+-----
+
+**Generating the mapping file from BLAST results**
+
+If you have BLAST tabular output (``-outfmt 6``), you can extract the two-column
+mapping with::
+
+    awk '{print $1 "\t" $2}' blast_results.txt | sort -k1,1 -k11,11g | \
+    awk '!seen[$1]++' > id_mapping.tsv
+
+Then add a header line manually::
+
+    echo -e "transcript_id\ttarget_id" | cat - id_mapping.tsv > id_mapping_with_header.tsv
+
+    ]]></help>
+
+    <expand macro="citations" />
+
+</tool>
