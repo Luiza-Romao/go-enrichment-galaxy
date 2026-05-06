@@ -10,8 +10,8 @@
 
             <!-- GO enrichment — Bioconductor 3.20 -->
             <requirement type="package" version="4.14.0">bioconductor-clusterprofiler</requirement>
-            <requirement type="package" version="1.26.0">bioconductor-enrichplot</requirement>
-            <requirement type="package" version="3.32.0">bioconductor-dose</requirement>
+            <requirement type="package" version="1.26.1">bioconductor-enrichplot</requirement>
+            <requirement type="package" version="4.0.0">bioconductor-dose</requirement>
             <requirement type="package" version="1.68.0">bioconductor-annotationdbi</requirement>
 
             <!-- OrgDb packages — Bioconductor 3.20 -->
@@ -20,10 +20,9 @@
             <requirement type="package" version="3.20.0">bioconductor-org.hs.eg.db</requirement>
             <requirement type="package" version="3.20.0">bioconductor-org.mm.eg.db</requirement>
             <requirement type="package" version="3.20.0">bioconductor-org.sc.sgd.db</requirement>
-            <requirement type="package" version="3.20.0">bioconductor-org.os.eg.db</requirement>
 
             <!-- CRAN packages -->
-            <requirement type="package" version="3.5.1">r-ggplot2</requirement>
+            <requirement type="package" version="3.5.2">r-ggplot2</requirement>
             <requirement type="package" version="0.9.6">r-ggrepel</requirement>
             <requirement type="package" version="1.7.5">r-optparse</requirement>
         </requirements>
@@ -37,7 +36,6 @@
             <option value="org.At.tair.db" selected="true">Arabidopsis thaliana (org.At.tair.db)</option>
             <option value="org.Hs.eg.db">Homo sapiens (org.Hs.eg.db)</option>
             <option value="org.Mm.eg.db">Mus musculus (org.Mm.eg.db)</option>
-            <option value="org.Os.eg.db">Oryza sativa (org.Os.eg.db)</option>
             <option value="org.Sc.sgd.db">Saccharomyces cerevisiae (org.Sc.sgd.db)</option>
         </param>
     </xml>

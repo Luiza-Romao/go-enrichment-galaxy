@@ -1,0 +1,42 @@
+# =============================================================================
+# Conda environment for the Galaxy tool: GO Enrichment Analysis
+# (WGCNA companion tool — go_enrichment.xml / go_enrichment.R)
+#
+# Versions mirror the <requirements> block in go_enrichment_macros.xml,
+# pinned to the Bioconductor 3.20 release (compatible with R 4.4).
+#
+# Create the environment with:
+#     conda env create -f conda_environment.yml
+# Activate it with:
+#     conda activate go-enrichment
+# =============================================================================
+
+name: go-enrichment
+
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # ── R base ────────────────────────────────────────────────────────────────
+  # Must match Bioconductor 3.20 (requires R 4.4)
+  - r-base=4.4
+
+  # ── GO enrichment core (Bioconductor 3.20) ────────────────────────────────
+  - bioconductor-clusterprofiler=4.14.0
+  - bioconductor-enrichplot=1.26.1
+  - bioconductor-dose=4.0.0
+  - bioconductor-annotationdbi=1.68.0
+
+  # ── OrgDb annotation packages (Bioconductor 3.20) ─────────────────────────
+  # Add or remove according to the organisms you need to analyze.
+  - bioconductor-org.at.tair.db=3.20.0   # Arabidopsis thaliana
+  - bioconductor-org.hs.eg.db=3.20.0     # Homo sapiens
+  - bioconductor-org.mm.eg.db=3.20.0     # Mus musculus
+  - bioconductor-org.sc.sgd.db=3.20.0    # Saccharomyces cerevisiae
+
+  # ── CRAN packages ─────────────────────────────────────────────────────────
+  - r-ggplot2=3.5.2
+  - r-ggrepel=0.9.6
+  - r-optparse=1.7.5

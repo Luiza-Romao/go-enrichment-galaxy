@@ -72,7 +72,6 @@ environment build time.
 | bioconductor-org.at.tair.db | 3.20.0 | Bioconductor 3.20 |
 | bioconductor-org.hs.eg.db | 3.20.0 | Bioconductor 3.20 |
 | bioconductor-org.mm.eg.db | 3.20.0 | Bioconductor 3.20 |
-| bioconductor-org.os.eg.db | 3.20.0 | Bioconductor 3.20 |
 | bioconductor-org.sc.sgd.db | 3.20.0 | Bioconductor 3.20 |
 | r-ggplot2 | 3.5.1 | conda-forge |
 | r-ggrepel | 0.9.6 | conda-forge |
@@ -365,7 +364,6 @@ in the OrgDb parameter.
 | org.At.tair.db | Arabidopsis thaliana | TAIR |
 | org.Hs.eg.db | Homo sapiens | ENTREZID or SYMBOL |
 | org.Mm.eg.db | Mus musculus | ENTREZID or SYMBOL |
-| org.Os.eg.db | Oryza sativa | ENTREZID |
 | org.Sc.sgd.db | Saccharomyces cerevisiae | SGD |
 
 For sugarcane analyses, use `org.At.tair.db` with key type `TAIR` in
