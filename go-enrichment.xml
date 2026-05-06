@@ -14,7 +14,7 @@
     <command detect_errors="exit_code"><![CDATA[
     mkdir -p go_plots &&
 
-    Rscript '$__tool_directory__/go_enrichment.R'
+    Rscript '$__tool_directory__/go-enrichment.R'
         --module_table '$module_table'
 
         #if $module_filter.filter_mode == "sel_table":
