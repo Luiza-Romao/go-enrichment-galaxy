@@ -92,14 +92,14 @@ cd go-enrichment-galaxy
 ### 2. Create the conda environment
 
 ```bash
-conda env create -f conda_environment.yml
+conda env create -n go_enrichment_env -f conda_environment.yml
 conda activate go_enrichment_env
 ```
 
 ### 3. Test locally with Planemo
 
 ```bash
-conda activate planemo_env
+conda activate go_enrichment_env
 planemo serve --port 8081
 ```
 
