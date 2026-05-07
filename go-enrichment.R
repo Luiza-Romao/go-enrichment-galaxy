@@ -426,6 +426,7 @@ for (mod in selected_modules) {
   ggsave(
     filename = file.path(opt$out_plots_dir, paste0("dotplot_", mod, ".png")),
     plot     = p_dot,
+    device   = "png",
     width    = 8,
     height   = plot_height,
     dpi      = 150,
@@ -434,6 +435,7 @@ for (mod in selected_modules) {
   ggsave(
     filename = file.path(opt$out_plots_dir, paste0("barplot_", mod, ".png")),
     plot     = p_bar,
+    device   = "png",
     width    = 8,
     height   = plot_height,
     dpi      = 150,
@@ -539,9 +541,9 @@ if (length(all_results) == 0) {
       plot.title       = element_text(size = 12, face = "bold")
     )
 
-  ggsave(opt$out_plot_dot, p_combined_dot,
+  ggsave(opt$out_plot_dot, p_combined_dot, device = "png",
          width = fig_w, height = fig_h, dpi = 150, limitsize = FALSE)
-  ggsave(opt$out_plot_bar, p_combined_bar,
+  ggsave(opt$out_plot_bar, p_combined_bar, device = "png",
          width = fig_w, height = fig_h, dpi = 150, limitsize = FALSE)
 
   log_msg_save("  Combined dotplot saved: ", opt$out_plot_dot)
