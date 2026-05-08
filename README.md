@@ -53,8 +53,7 @@ dedicated annotation databases.
 | `go_enrichment.R` | Main R analysis script |
 | `conda_environment.yml` | Reproducible conda environment with pinned dependencies |
 | `test-data/` | Synthetic fixtures for `planemo test` and manual smoke tests |
-| `BUGS.md` | Development bug log with root causes and fixes |
-| `CHANGELOG.md` | Version history |
+
 
 ---
 
@@ -112,7 +111,6 @@ Open `http://localhost:8081` in a browser and submit a job using the test data.
 conda activate go_enrichment_env
 Rscript -e "parse('go_enrichment.R'); cat('Syntax OK\n')"
 
-conda activate planemo-env
 planemo lint go_enrichment.xml
 planemo test go_enrichment.xml
 ```
@@ -166,7 +164,7 @@ combined results table and the log file are produced and contain expected
 content.
 
 ```bash
-conda activate planemo-env
+conda activate go_enrichment_env
 planemo lint go_enrichment.xml      # structural validation, < 1s
 planemo test go_enrichment.xml      # full job, ~2-4 min
 ```
