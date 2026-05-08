@@ -481,10 +481,24 @@ if (length(all_results) == 0) {
 
   log_msg_save("  Combined table rows: ", nrow(combined_df))
 
-  # Combined dotplot (all modules, top N terms each)
+  # ──────────────────────────────────────────────────────────────────────
+  # Combined visualization strategy:
+  #   - out_plot_dot: compact "bubble" plot (terms × modules) — replaces
+  #                   the previous facet-wrapped giant grid. Compact and
+  #                   publication-friendly.
+  #   - out_plot_bar: heatmap of -log10(p.adjust) for terms × modules —
+  #                   the de-facto standard for comparing GO across many
+  #                   modules in WGCNA papers.
+  #
+  # Both views show only the TOP terms of each module (top_terms parameter)
+  # and pool them across modules, so a term enriched in multiple modules
+  # appears once on the y-axis and lights up multiple columns.
+  # ──────────────────────────────────────────────────────────────────────
+
+  # Take top N terms per (module × ontology) for the combined views
   top_combined <- do.call(rbind, lapply(all_results, function(d) {
     do.call(rbind, lapply(split(d, d$Ontology), function(x) {
-      x[order(x$p.adjust), ][seq_len(min(5, nrow(x))), ]
+      x[order(x$p.adjust), ][seq_len(min(opt$top_terms, nrow(x))), ]
     }))
   }))
 
@@ -492,62 +506,85 @@ if (length(all_results) == 0) {
     top_combined$GeneRatio,
     function(x) eval(parse(text = x))
   )
-  top_combined$ModOnt <- paste0(top_combined$Module, "\n(", top_combined$Ontology, ")")
+  top_combined$neg_log_p <- -log10(top_combined$p.adjust)
 
-  n_panels <- length(unique(top_combined$Module))
-  ncols    <- min(3, n_panels)
-  nrows    <- ceiling(n_panels / ncols)
-  fig_w    <- ncols * 5.5
-  fig_h    <- max(4, nrows * 5)
+  # Order terms by ontology, then by max significance across modules.
+  # This keeps BP/MF/CC blocks together and the most striking terms on top.
+  term_summary <- aggregate(neg_log_p ~ Description + Ontology,
+                            data = top_combined, FUN = max)
+  term_summary <- term_summary[order(term_summary$Ontology,
+                                     -term_summary$neg_log_p), ]
+  term_levels <- rev(term_summary$Description)   # rev so BP appears at top
 
+  top_combined$Description <- factor(top_combined$Description,
+                                     levels = term_levels)
+  top_combined$Module      <- factor(top_combined$Module,
+                                     levels = sort(unique(top_combined$Module)))
+
+  # Adaptive figure size — based on number of unique terms × modules
+  n_terms   <- length(unique(top_combined$Description))
+  n_mods    <- length(unique(top_combined$Module))
+  fig_w     <- max(7, 2.5 + n_mods * 0.55)
+  fig_h     <- max(5, 1.5 + n_terms * 0.22)
+
+  # ── (1) Compact bubble dotplot: terms (y) × modules (x) ───────────────
   p_combined_dot <- ggplot(top_combined, aes(
-    x     = GeneRatio_num,
-    y     = reorder(Description, GeneRatio_num),
+    x     = Module,
+    y     = Description,
     size  = Count,
-    color = p.adjust
+    color = neg_log_p
   )) +
     geom_point() +
-    scale_color_gradient(low = "#1D9E75", high = "#D85A30",
-                         name = "Adj. p-value") +
+    scale_color_gradient(low = "#D9C77A", high = "#1B5E20",
+                         name = expression(-log[10]~"(adj. p-value)")) +
     scale_size_continuous(name = "Gene count", range = c(2, 7)) +
-    facet_wrap(~ Module + Ontology, scales = "free_y", ncol = ncols) +
-    labs(x = "Gene ratio", y = NULL,
-         title = "GO Enrichment — all modules") +
-    theme_bw(base_size = 10) +
+    facet_grid(Ontology ~ ., scales = "free_y", space = "free_y") +
+    labs(x = NULL, y = NULL,
+         title = "GO Enrichment — top terms per module") +
+    theme_bw(base_size = 11) +
     theme(
       strip.background = element_rect(fill = "#E6F1FB"),
-      strip.text       = element_text(face = "bold", size = 8),
+      strip.text.y     = element_text(face = "bold", angle = 0),
+      axis.text.x      = element_text(angle = 45, hjust = 1, size = 9),
       axis.text.y      = element_text(size = 8),
-      plot.title       = element_text(size = 12, face = "bold")
+      plot.title       = element_text(size = 12, face = "bold"),
+      panel.grid.major = element_line(color = "grey92"),
+      panel.grid.minor = element_blank()
     )
 
+  # ── (2) Heatmap: terms (y) × modules (x), color = -log10(p.adjust) ────
+  # Cells without enrichment stay grey; significant enrichments fill in.
   p_combined_bar <- ggplot(top_combined, aes(
-    x    = reorder(Description, Count),
-    y    = Count,
-    fill = p.adjust
+    x    = Module,
+    y    = Description,
+    fill = neg_log_p
   )) +
-    geom_col() +
-    coord_flip() +
-    scale_fill_gradient(low = "#1D9E75", high = "#D85A30",
-                        name = "Adj. p-value") +
-    facet_wrap(~ Module + Ontology, scales = "free", ncol = ncols) +
-    labs(x = NULL, y = "Gene count",
-         title = "GO Enrichment — all modules") +
-    theme_bw(base_size = 10) +
+    geom_tile(color = "white", linewidth = 0.4) +
+    geom_text(aes(label = Count), size = 2.8, color = "grey20") +
+    scale_fill_gradient(low = "#FDE6C5", high = "#9E2A2B",
+                        name = expression(-log[10]~"(adj. p-value)")) +
+    facet_grid(Ontology ~ ., scales = "free_y", space = "free_y") +
+    labs(x = NULL, y = NULL,
+         title = "GO Enrichment heatmap — top terms per module",
+         subtitle = "Cell value = number of genes; colour = -log10(adjusted p-value)") +
+    theme_minimal(base_size = 11) +
     theme(
-      strip.background = element_rect(fill = "#E6F1FB"),
-      strip.text       = element_text(face = "bold", size = 8),
+      strip.background = element_rect(fill = "#E6F1FB", color = NA),
+      strip.text.y     = element_text(face = "bold", angle = 0),
+      axis.text.x      = element_text(angle = 45, hjust = 1, size = 9),
       axis.text.y      = element_text(size = 8),
-      plot.title       = element_text(size = 12, face = "bold")
+      plot.title       = element_text(size = 12, face = "bold"),
+      plot.subtitle    = element_text(size = 9, color = "grey40"),
+      panel.grid       = element_blank()
     )
 
   ggsave(opt$out_plot_dot, p_combined_dot, device = "png",
-         width = fig_w, height = fig_h, dpi = 150, limitsize = FALSE)
+         width = fig_w, height = fig_h, dpi = 200, limitsize = FALSE)
   ggsave(opt$out_plot_bar, p_combined_bar, device = "png",
-         width = fig_w, height = fig_h, dpi = 150, limitsize = FALSE)
+         width = fig_w, height = fig_h, dpi = 200, limitsize = FALSE)
 
-  log_msg_save("  Combined dotplot saved: ", opt$out_plot_dot)
-  log_msg_save("  Combined barplot saved: ", opt$out_plot_bar)
+  log_msg_save("  Combined bubble dotplot saved: ", opt$out_plot_dot)
+  log_msg_save("  Combined heatmap saved:        ", opt$out_plot_bar)
 }
 
 # ── STEP 8: Write log ─────────────────────────────────────────────────────────

@@ -154,10 +154,10 @@
             label="${tool.name}: ID mapping report" />
 
         <data name="out_plot_dot" format="png"
-            label="${tool.name}: Dotplot — all modules" />
+            label="${tool.name}: Bubble dotplot — top terms across modules" />
 
         <data name="out_plot_bar" format="png"
-            label="${tool.name}: Barplot — all modules" />
+            label="${tool.name}: Heatmap — top terms across modules" />
 
         <collection name="out_plots_per_module" type="list"
             label="${tool.name}: Per-module plots">

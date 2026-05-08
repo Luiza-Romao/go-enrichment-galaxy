@@ -14,6 +14,7 @@ platform. Companion tool to the
 - [File structure](#file-structure)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Testing](#testing)
 - [Input formats](#input-formats)
 - [Parameters](#parameters)
 - [Outputs](#outputs)
@@ -51,6 +52,7 @@ dedicated annotation databases.
 | `go_enrichment_macros.xml` | Reusable XML macros (requirements, shared parameters) |
 | `go_enrichment.R` | Main R analysis script |
 | `conda_environment.yml` | Reproducible conda environment with pinned dependencies |
+| `test-data/` | Synthetic fixtures for `planemo test` and manual smoke tests |
 | `BUGS.md` | Development bug log with root causes and fixes |
 | `CHANGELOG.md` | Version history |
 
@@ -104,13 +106,20 @@ planemo serve --port 8081
 
 Open `http://localhost:8081` in a browser and submit a job using the test data.
 
-### 4. Validate syntax and run automated tests
+### 4. Quick syntax check and smoke test
 
 ```bash
 conda activate go_enrichment_env
 Rscript -e "parse('go_enrichment.R'); cat('Syntax OK\n')"
+
+conda activate planemo-env
+planemo lint go_enrichment.xml
 planemo test go_enrichment.xml
 ```
+
+For the full testing workflow — synthetic fixtures, tests with real WGCNA
+output, and how to interpret the reference outputs — see the
+[Testing](#testing) section below.
 
 ### 5. Deploy to a Galaxy instance
 
@@ -127,6 +136,153 @@ Register in `tool_conf.xml`:
 ```
 
 Restart Galaxy after registering the tool.
+
+---
+
+## Testing
+
+The tool ships with synthetic fixtures under `test-data/` that exercise the
+two main analysis paths: model-organism gene IDs handled directly, and
+non-model transcript IDs converted via an ortholog mapping file. All fixtures
+use real Arabidopsis TAIR locus identifiers, so enrichment calls return real
+GO terms rather than empty tables — this lets you verify that the OrgDb
+lookup and `enrichGO` call are wired together correctly, not just that the
+script runs to completion.
+
+### Test fixtures
+
+| File | What it represents |
+|---|---|
+| `test-data/test_modules.tabular` | WGCNA module assignments using TAIR IDs directly. Four colour modules plus a grey module (which the tool should silently drop). |
+| `test-data/test_selected_modules.tabular` | A "Selected modules summary" table from WGCNA, with mock trait correlations. Used to test the selected-modules filtering path. |
+| `test-data/test_modules_with_transcript_ids.tabular` | The same module structure but with sugarcane-style `transcript_NNNNNN` IDs. Used together with the mapping file below. |
+| `test-data/test_id_mapping.tabular` | Two-column ortholog mapping (transcript ID → TAIR ID). Mirrors the format of a BLAST best-hit table after the `awk` post-processing described in the [Transcript ID mapping guide](#transcript-id-mapping-guide). |
+
+### 1. Automated test (Planemo)
+
+The fastest sanity check. Runs the test declared in the `<tests>` block of
+`go-enrichment.xml`, which uses `test_modules.tabular` and asserts that the
+combined results table and the log file are produced and contain expected
+content.
+
+```bash
+conda activate planemo-env
+planemo lint go_enrichment.xml      # structural validation, < 1s
+planemo test go_enrichment.xml      # full job, ~2-4 min
+```
+
+`planemo lint` should be your first call after any XML edit — it catches
+file-name typos, broken macros, and malformed `<tests>` blocks before you
+spend several minutes on a full test job. A lint failure means the test
+was never going to run.
+
+### 2. Manual smoke test — model organism path
+
+Runs the tool from the command line against the same fixture used by Planemo,
+without going through Galaxy. Useful for quick R-side debugging.
+
+```bash
+conda activate go_enrichment_env
+
+mkdir -p /tmp/go_test && cd /tmp/go_test
+mkdir -p go_plots
+
+Rscript /path/to/go-enrichment.R \
+    --module_table /path/to/test-data/test_modules.tabular \
+    --modules all \
+    --min_genes_per_mod 10 \
+    --orgdb org.At.tair.db \
+    --keytype TAIR \
+    --ontology BP \
+    --pvalue_cutoff 0.05 \
+    --qvalue_cutoff 0.2 \
+    --min_gs_size 10 \
+    --max_gs_size 500 \
+    --top_terms 15 \
+    --out_table_combined results.tsv \
+    --out_table_mapping mapping_report.tsv \
+    --out_plot_dot dotplot.png \
+    --out_plot_bar heatmap.png \
+    --out_plots_dir go_plots \
+    --out_log run.log
+```
+
+**Expected output:** `results.tsv` with at least one row and the columns
+`Module`, `Ontology`, `ID`, `Description`, `pvalue`, `p.adjust`, `Count`,
+`geneID`. The log should report the number of modules processed and a
+positive count of significant terms for at least the `turquoise` module.
+
+### 3. Manual smoke test — non-model organism path (ID mapping)
+
+Exercises the BLAST-mediated mapping pipeline end-to-end with synthetic data.
+This is the path used for sugarcane and other non-model species.
+
+```bash
+conda activate go_enrichment_env
+
+Rscript /path/to/go-enrichment.R \
+    --module_table /path/to/test-data/test_modules_with_transcript_ids.tabular \
+    --modules all \
+    --min_genes_per_mod 10 \
+    --id_mapping /path/to/test-data/test_id_mapping.tabular \
+    --mapping_from_col transcript_id \
+    --mapping_to_col target_id \
+    --orgdb org.At.tair.db \
+    --keytype TAIR \
+    --ontology ALL \
+    --pvalue_cutoff 0.05 \
+    --qvalue_cutoff 0.2 \
+    --min_gs_size 10 \
+    --max_gs_size 500 \
+    --top_terms 15 \
+    --out_table_combined results_mapped.tsv \
+    --out_table_mapping mapping_report.tsv \
+    --out_plot_dot dotplot_mapped.png \
+    --out_plot_bar heatmap_mapped.png \
+    --out_plots_dir go_plots \
+    --out_log run_mapped.log
+```
+
+**Expected output:** `mapping_report.tsv` listing the 50 transcript-to-TAIR
+mappings, with module assignments preserved. `results_mapped.tsv` should
+contain BP, MF, and CC terms (because `--ontology ALL` was used).
+
+### 4. End-to-end test with real WGCNA output
+
+The most realistic test. Uses the actual outputs of the companion
+[WGCNA Galaxy tool](https://github.com/Luiza-Romao/wgcna-galaxy) and an ID
+mapping file generated from BLAST against the Arabidopsis proteome.
+
+If you have not yet generated the WGCNA outputs, run the WGCNA tool first
+(see its README for test fixtures and walkthrough). The relevant outputs
+to feed into this tool are:
+
+| WGCNA output | Use as |
+|---|---|
+| `WGCNA: Module gene assignments` | `--module_table` |
+| `WGCNA: Selected modules summary` | `--sel_modules` (optional, restricts analysis to trait-correlated modules) |
+
+The mapping file is produced by `generate_id_mapping.sh` (also documented
+in the [Transcript ID mapping guide](#transcript-id-mapping-guide)). Once
+all three files exist, run the tool through Galaxy and confirm:
+
+1. The mapping report shows a non-trivial mapping rate (typically 30–60%
+   for sugarcane → Arabidopsis).
+2. At least the most strongly trait-correlated modules return significant
+   GO terms.
+3. The bubble dotplot and heatmap render at a reasonable size (the tool
+   sizes the canvas adaptively to the number of terms; very large
+   modules may produce tall PNGs).
+
+### Common test failures and what they mean
+
+| Symptom | Likely cause |
+|---|---|
+| `planemo lint` reports `Macro file not found: go_enrichment_macros.xml` | The XML `<import>` line uses underscores but a file in the directory uses hyphens (or vice versa). Check that all four files share the same naming convention. |
+| `Could not detect Gene and Module columns in the module table` | The header of `--module_table` does not contain a recognized gene-column name (`Gene`, `GeneID`, `gene_id`, `transcript_id`) or module-column name (`Module`, `Color`). |
+| `No gene sets have size between 10 and 500` (warning, not error) | Normal for small modules. The script handles this via `safe_enrichGO` and continues to the next module. Not a failure unless every module emits this warning. |
+| Empty `results.tsv` but tool exits successfully | All modules either fell below `--min_genes_per_mod` after mapping or produced no significant terms at the chosen `--pvalue_cutoff`. Check `mapping_report.tsv` and the log. |
+| `object 'is_ggplot' is not exported by 'namespace:ggplot2'` | `r-ggplot2` resolved to a version older than 3.5.2. Recreate the conda environment from the pinned `conda_environment.yml`. |
 
 ---
 

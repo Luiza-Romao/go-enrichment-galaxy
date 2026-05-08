@@ -1,0 +1,4 @@
+Module	Trait	Correlation	Pvalue
+turquoise	RegularDay	0.78	0.001
+blue	ShortDay	-0.65	0.008
+yellow	RegularDay	0.71	0.003
