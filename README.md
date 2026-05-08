@@ -67,14 +67,14 @@ environment build time.
 |---|---|---|
 | r-base | 4.4 | conda-forge |
 | bioconductor-clusterprofiler | 4.14.0 | Bioconductor 3.20 |
-| bioconductor-enrichplot | 1.26.0 | Bioconductor 3.20 |
-| bioconductor-dose | 3.32.0 | Bioconductor 3.20 |
+| bioconductor-enrichplot | 1.26.1 | Bioconductor 3.20 |
+| bioconductor-dose | 4.0.0 | Bioconductor 3.20 |
 | bioconductor-annotationdbi | 1.68.0 | Bioconductor 3.20 |
 | bioconductor-org.at.tair.db | 3.20.0 | Bioconductor 3.20 |
 | bioconductor-org.hs.eg.db | 3.20.0 | Bioconductor 3.20 |
 | bioconductor-org.mm.eg.db | 3.20.0 | Bioconductor 3.20 |
 | bioconductor-org.sc.sgd.db | 3.20.0 | Bioconductor 3.20 |
-| r-ggplot2 | 3.5.1 | conda-forge |
+| r-ggplot2 | 3.5.2 | conda-forge |
 | r-ggrepel | 0.9.6 | conda-forge |
 | r-optparse | 1.7.5 | conda-forge |
 
