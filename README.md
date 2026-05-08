@@ -98,6 +98,8 @@ conda activate go_enrichment_env
 
 ### 3. Test locally with Planemo
 
+Check [here](https://planemo.readthedocs.io/en/latest/installation.html) how to install Planemo.
+
 ```bash
 conda activate go_enrichment_env
 planemo serve --port 8081
